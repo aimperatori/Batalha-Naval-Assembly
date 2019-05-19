@@ -1,3 +1,7 @@
 # Batalha Naval em Assembly
 
-botar aqui a descrição do trabalho
+Telas:
+
+1 - Menu de Inicio
+2 - Configuração
+3 - Jogo
