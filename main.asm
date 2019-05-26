@@ -1,27 +1,32 @@
 .model small
 .stack 100h
 .data
-    	nomeJogo1 		db "Batalha"
-    	nomeJogo2 		db "Naval"
-	textAutores		db "Autores:"
-    	nomeAnderson 		db "Anderson Imperatori"    
-    	nomeEduardo 		db "Eduardo Menzen"
-    	opJogar 		db "Jogar"
-    	opSair 			db "Sair"	
+    nomeJogo1 			db "Batalha"
+    nomeJogo2 			db "Naval"
+	textAutores			db "Autores:"
+    nomeAnderson 		db "Anderson Imperatori"    
+    nomeEduardo 		db "Eduardo Menzen"
+    opJogar 			db "Jogar"
+    opSair 				db "Sair"	
 	stringNumeros		db "0123456789"
 	tituloMatrizNavios 	db "Matriz de Navios"
 	tituloMatrizTiros 	db "Matriz de Tiros"
-	texConfig 		db "Digite a posicao do"
+	texConfig 			db "Digite a posicao do"
 	texVoce           	db "Voce"
 	texTiros          	db  "Tiros:"
 	texAcertos        	db  "Acertos:" 
 	texAfundados      	db  "Afundados:"
 	texComputador     	db  "Computador:"
 	texUltimoTiro     	db  "Ultimo Tiro:"
-	textPosicao		db	"Posicao:"
+	textPosicao			db	"Posicao:"
 	textMensagens		db	"Mensagens:"
-	vetquadrados        	db 10 dup(254,' ')  ;quadrado + caractere nulo
-
+	vet_embarcacoes 	db " Porta Avioes  "     
+						db "Navio de Guerra"
+						db "   Submarino   "
+						db "   Destroyer   "
+						db "Barco Patrulha "
+	vet_tam_embarcacoes	db 05,04,03,03,02
+	
 .code
 EMPILHATUDO macro
     push AX
@@ -409,13 +414,20 @@ PRINT_QUADRADOS_VERDES proc
     add DH, 4   ;ajusta linha
     add DL, 3   ;ajusta coluna
     mov CX, 10
-    mov BP, offset vetquadrados
 	LACO_QUADRADOS:
         push CX
-        call MOV_CURSOR
-    	mov CX, 20
-    	call ESC_STRING
+		mov CX, 10
+		LACO_QUADRADOS2:
+			call MOV_CURSOR
+			push CX
+			mov CX, 1
+			mov AL, 254	;quadrado
+			call ESC_CHAR_10
+			add DL, 2
+			pop CX
+		loop LACO_QUADRADOS2
     	inc DH
+		sub DL, 20
     	pop CX
 	loop LACO_QUADRADOS
 	
@@ -547,6 +559,170 @@ PRINT_TELA_JOGO proc
 	ret
 endp
 
+LER_POSICAO proc ;realiza a leitura da posição devolvendo o valor em AH e a direção em AL
+    push BX
+    push CX
+	push DX
+	
+	call MOV_CURSOR
+	mov CX, 3
+	mov AL, ' '		;para limpar o texto no cursor
+	call ESC_CHAR_10
+	
+    xor AX, AX ;variavel aculumador	
+	
+	;leitura da posição
+    mov CX, 2
+	LER_CORRETO:
+		push CX
+		push AX
+		
+	LER_ALGARISMO:
+		call MOV_CURSOR
+		call LER_CHAR
+		cmp AL, '0'
+		jb LER_ALGARISMO
+		cmp AL, '9'
+		ja LER_ALGARISMO
+		mov CX, 1
+		call ESC_CHAR_10
+		inc DL
+		sub AL, '0' ;converte caractere para dígito
+		mov CL, AL
+		pop AX
+		mov CH, 10 ;valor 10 da multiplicação
+		mul CH  ;AX = AL * CH
+		add AL, CL
+		pop CX
+	loop LER_CORRETO
+		
+	mov CH, AL	;salva o valor em CH
+	call MOV_CURSOR
+	;leitura da direção
+	LER_CHAR_VH:
+		call LER_CHAR
+		;verifica se eh V                  
+		cmp AL, 'V'
+		jz ESCREVE_DIRECAO   
+		;verifica se eh H
+		cmp AL, 'H'
+		jnz LER_CHAR_VH		
+	
+	ESCREVE_DIRECAO:
+	mov AH, CH	;retorna o valor da posição em AH
+	mov CX, 1
+	call ESC_CHAR_10	
+			
+    pop DX
+    pop CX
+    pop BX   
+    ret
+endp 
+
+VALIDA_POSICAO proc	;recebe posição em AH, direção (V ou H) em AL e tamanho da embarcação em CL, devolvendo se é valida (BL = 1) ou não (BL = 0)
+	push AX
+	
+	cmp AL, 'H'			;verifica se é horizontal
+	jnz VERTICAL		;se não é horizontal vai para as validações verticais
+		mov AL, AH		;salva posição em AL
+		xor AH, AH		;zera AH
+		mov BL, 10		;valor para divisão
+		div BL			;AL:AH <- AX/BL (quociente:resto) -> AH recebe o valor da coluna
+		jmp VALIDACOES
+	VERTICAL:
+		mov AL, AH		;salva posição em AL
+		xor AH, AH		;zera AH
+		mov BL, 10		;valor para divisão
+		div BL			;AL:AH <- AX/BL (quociente:resto) -> AL recebe o valor da linha
+		mov AH, AL		;move o valor da linha para AH
+	
+	mov BL, 1			;seta posição como válida
+	VALIDACOES:
+		cmp AH, 9		;nenhuma embarcação pode ser inserida na posição 9
+		jb CONTINUA1	;AH < 9
+		xor BL, BL		;posição não é válida (BL = 0)
+		jmp FIM_VALIDA
+		CONTINUA1:
+		cmp AH, 6		;qualquer embarcação pode ser inserida nas posições 0,1,2,3,4 e 5
+		jb FIM_VALIDA	;AH < 6
+		cmp CL, 2		;embarcação com tamanho 2
+		jnz CONTINUA2	;se CL != 2
+		cmp AH, 8
+		jbe FIM_VALIDA	;se AH <= 8, a posição é válida
+		xor BL, BL		;posição não é válida (BL = 0)
+		jmp FIM_VALIDA		
+		CONTINUA2:
+		cmp CL, 3		;embarcação com tamanho 3
+		jnz CONTINUA3	;se CL != 3
+		cmp AH, 7
+		jbe FIM_VALIDA	;se AH <= 7, a posição é válida
+		xor BL, BL		;posição não é válida (BL = 0)
+		jmp FIM_VALIDA		
+		CONTINUA3:
+		cmp CL, 4		;embarcação com tamanho 4
+		jnz CONTINUA4	;se CL != 4
+		cmp AH, 6
+		jbe FIM_VALIDA	;se AH <= 6, a posição é válida
+		xor BL, BL		;posição não é válida (BL = 0)
+		jmp FIM_VALIDA		
+		CONTINUA4:			
+		xor BL, BL		;embarcação com tamanho 5 está numa posição não válida (BL = 0)
+				
+	FIM_VALIDA:
+	
+	pop AX
+	ret
+endp
+
+INSERE_BARCOS proc ;insere os barcos na matriz de Navios e escreve na tela      
+    push BP        
+    push DX     
+    push BX
+	push SI
+    
+    ;SETA LINHA, COLUNA, PAGINA E COR 
+    mov DH, 18       ;linha
+    mov DL, 32       ;coluna           
+    mov BH, 2        ;pagina 
+    mov BL, 7 	     ;cor: cinza claro 
+    
+    ;LE PORTA EMBARCAÇÕES
+	mov CX, 5	;são 5 embarcações
+	mov BP, offset vet_embarcacoes
+	mov SI, offset vet_tam_embarcacoes 	
+	LER_EMBARCACOES:
+		push CX
+		mov CX, 15	    ;tamanho da string
+		call MOV_CURSOR	  
+		call ESC_STRING
+		add BP, CX		;já posiciona para pegar o nome da próxima embarcação
+		inc DH			;avança uma linha
+		add DL, 6		;avança colunas
+	
+		LER_NOVAMENTE:
+			call LER_POSICAO;devolve o valor da posição em AH e direção (V ou H) em AL
+			mov CL, [SI]	;busca o tamanho da embarcação
+			push BX		;BX possui o contexto de página e cor
+			call VALIDA_POSICAO ;verifica posição devolvendo se é é valida (BL = 1) ou não (BL = 0)
+			cmp BL, 0
+			pop BX		;BX possui o contexto de página e cor
+			jz LER_NOVAMENTE	;se BL = 0, lê novamente
+			
+		dec DH			;retorna uma linha
+		sub DL, 6		;retornar colunas
+		inc SI			;posiciona pra pegar o tamanho da próxima embarcação
+		pop CX
+	loop LER_EMBARCACOES
+		
+    pop SI 
+    pop BX
+    pop DX      
+    pop BP
+    ret
+endp 
+
+
+
 INICIO:	mov AX, @data ; carrega valor inicial da stack
 	mov DS, AX
 	mov ES, AX	;para poder utilizar a função 13h da int 10H
@@ -565,12 +741,13 @@ INICIO:	mov AX, @data ; carrega valor inicial da stack
 	call MUDA_PAGINA
 	call PRINT_TELA_CONFIG
 	
+	call INSERE_BARCOS
 	call LER_CHAR
 	
 	mov AL, 3	;define o número da página
 	call MUDA_PAGINA
 	call PRINT_TELA_JOGO
-	
+	;
 	call LER_CHAR
 	
 	call SAIR_JOGO ; finaliza o jogo
