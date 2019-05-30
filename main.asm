@@ -13,19 +13,22 @@
 	tituloMatrizTiros 	db "Matriz de Tiros"
 	texConfig 			db "Digite a posicao do"
 	texVoce           	db "Voce"
-	texTiros          	db  "Tiros:"
-	texAcertos        	db  "Acertos:" 
-	texAfundados      	db  "Afundados:"
-	texComputador     	db  "Computador:"
-	texUltimoTiro     	db  "Ultimo Tiro:"
-	textPosicao			db	"Posicao:"
-	textMensagens		db	"Mensagens:"
+	texTiros          	db "Tiros:"
+	texAcertos        	db "Acertos:" 
+	texAfundados      	db "Afundados:"
+	texComputador     	db "Computador:"
+	texUltimoTiro     	db "Ultimo Tiro:"
+	textPosicao			db "Posicao:"
+	textMensagens		db "Mensagens:"
 	vet_embarcacoes 	db " Porta Avioes  "     
 						db "Navio de Guerra"
 						db "   Submarino   "
 						db "   Destroyer   "
 						db "Barco Patrulha "
 	vet_tam_embarcacoes	db 05,04,03,03,02
+	vet_Navios			db 'A','B','S','D','P'
+	matrizNavios 		db 100 dup(0)
+	matrizNaviosBackup 	db 100 dup(?)
 	
 .code
 EMPILHATUDO macro
@@ -603,10 +606,10 @@ LER_POSICAO proc ;realiza a leitura da posição devolvendo o valor em AH e a di
 		call LER_CHAR
 		;verifica se eh V                  
 		cmp AL, 'V'
-		jz ESCREVE_DIRECAO   
+		jz ESCREVE_DIRECAO	;se AL = 'V', escre a direção
 		;verifica se eh H
 		cmp AL, 'H'
-		jnz LER_CHAR_VH		
+		jnz LER_CHAR_VH		;se AL != 'H', lê novamente		
 	
 	ESCREVE_DIRECAO:
 	mov AH, CH	;retorna o valor da posição em AH
@@ -619,8 +622,8 @@ LER_POSICAO proc ;realiza a leitura da posição devolvendo o valor em AH e a di
     ret
 endp 
 
-VALIDA_POSICAO proc	;recebe posição em AH, direção (V ou H) em AL e tamanho da embarcação em CL, devolvendo se é valida (BL = 1) ou não (BL = 0)
-	push AX
+VALIDA_LIMITE_MATRIZ proc	;recebe posição em AH, direção (V ou H) em AL e tamanho da embarcação em CL
+	push AX					;devolvendo se é valida (BL = 1) ou não (BL = 0)
 	
 	cmp AL, 'H'			;verifica se é horizontal
 	jnz VERTICAL		;se não é horizontal vai para as validações verticais
@@ -674,11 +677,136 @@ VALIDA_POSICAO proc	;recebe posição em AH, direção (V ou H) em AL e tamanho 
 	ret
 endp
 
+VALIDA_POSICAO proc	;recebe posição em AH, direção em AL, tamanho da embarcação em CL e a matriz em DI
+	push AX				;verifica se a posição está livre retornando e é valida (BL = 1) ou não (BL = 0)
+	push CX
+	
+	xor CH, CH			;zera parte alta do CX, pois recebe o tamanho em CL
+	xor BX, BX			;limpa BX
+	mov BL, AH			;copia a posição para BX
+	cmp AL, 'H'			;verifica se é horizontal
+	jnz VERTICAL2		;se não é horizontal vai para a validação vertical
+		HORIZONTAL:
+			mov AL, [DI+BX]	;tenho que trazer apenas 1 byte
+			or AL, AL		;verifica se a posição está livre
+			jnz	POSICAO_OCUPADA
+			inc BX
+		loop HORIZONTAL
+		jmp POSICAO_VALIDA	;se chegou aqui é pq a posição está livre
+		
+	VERTICAL2:
+		mov AL, [DI+BX]
+		or AL, AL	;verifica se a posição está livre
+		jnz	POSICAO_OCUPADA
+		add BX,10
+	loop VERTICAL2
+	
+	POSICAO_VALIDA:
+		mov BL, 1		;a posição não está ocupada (pode inserir)
+		jmp FIM_VALIDA_POS
+	POSICAO_OCUPADA:
+		xor BL, BL		;a posição está ocupada (não pode inserir)
+	
+	FIM_VALIDA_POS:
+	
+	pop CX
+	pop AX
+	ret
+endp
+
+COPIA_MATRIZ proc ;copia a "matriz" em SI para outra "matriz" em DI
+	push CX
+	push SI
+	push DI
+	mov CX, 100
+	COPIA:
+		movsb	;[ES:DI] <- [DS:SI] inc SI e DI
+		loop COPIA
+	pop DI
+	pop SI
+	pop CX
+	ret
+endp
+
+GRAVA_EMB_HORIZONTAL proc ;grava embarcação em AL com tamanho CL na posição AH na matriz em SI
+	push BX
+	push CX
+	push SI
+	
+	xor BX, BX	;limpa BX
+	xor CH, CH	;limpa parte alta do CX
+	mov BL, AH
+	GRAVAH:
+		mov [SI+BX], AL
+		inc BX
+		loop GRAVAH
+	pop SI
+	pop CX
+	pop BX
+	ret
+endp
+
+GRAVA_EMB_VERTICAL proc ;grava embarcação em AL com tamanho CL na posição AH na matriz em SI
+	push BX
+	push CX
+	push SI
+	
+	xor BX, BX	;limpa BX
+	xor CH, CH	;limpa parte alta do CX
+	mov BL, AH
+	GRAVAV:
+		mov [SI+BX], AL
+		add BX, 10
+		loop GRAVAV
+	pop SI
+	pop CX
+	pop BX
+	ret
+endp
+
+ESCREVE_MATRIZ_NAVIOS proc ;escreve de Navios em SI na posição DH:DL linha:coluna
+	push AX
+	push BX
+	push CX
+	push DX
+	push SI
+	
+	mov CX, 10
+	ESCREVE1:
+		push CX
+		mov CX, 10
+	    ESCREVE2:
+	        push CX
+			call MOV_CURSOR
+			mov AL, ' '	;espaço
+			call ESC_CHAR_10
+			inc DL		;coluna			
+			lodsb		;AL <- [DS:SI] e inc SI
+			mov CX, 1   ;escreve uma vez o caracter
+			call MOV_CURSOR
+			call ESC_CHAR_10
+			inc DL		;coluna
+			pop CX
+			loop ESCREVE2
+		sub DL, 20	;coluna
+		inc DH	;linha
+		call MOV_CURSOR
+		pop CX
+		loop ESCREVE1
+	pop SI
+	pop DX
+	pop CX
+	pop BX
+	pop AX
+	ret
+endp
+
 INSERE_BARCOS proc ;insere os barcos na matriz de Navios e escreve na tela      
     push BP        
     push DX     
     push BX
 	push SI
+	push DI
     
     ;SETA LINHA, COLUNA, PAGINA E COR 
     mov DH, 18       ;linha
@@ -689,7 +817,9 @@ INSERE_BARCOS proc ;insere os barcos na matriz de Navios e escreve na tela
     ;LE PORTA EMBARCAÇÕES
 	mov CX, 5	;são 5 embarcações
 	mov BP, offset vet_embarcacoes
-	mov SI, offset vet_tam_embarcacoes 	
+	mov SI, offset vet_tam_embarcacoes
+	mov DI, offset vet_Navios
+	
 	LER_EMBARCACOES:
 		push CX
 		mov CX, 15	    ;tamanho da string
@@ -702,25 +832,60 @@ INSERE_BARCOS proc ;insere os barcos na matriz de Navios e escreve na tela
 		LER_NOVAMENTE:
 			call LER_POSICAO;devolve o valor da posição em AH e direção (V ou H) em AL
 			mov CL, [SI]	;busca o tamanho da embarcação
-			push BX		;BX possui o contexto de página e cor
-			call VALIDA_POSICAO ;verifica posição devolvendo se é é valida (BL = 1) ou não (BL = 0)
-			cmp BL, 0
-			pop BX		;BX possui o contexto de página e cor
+			push BX			;BX possui o contexto de página e cor
+				call VALIDA_LIMITE_MATRIZ ;verifica posição dentro dos limites da matriz devolvendo se é é valida (BL = 1) ou não (BL = 0)
+				or BL, BL			;equivalente a comparar com zero (cmp BL, 0)
+				jz FALHO_VALIDACAO	;se a posição não é valida não realiza a segunda validação
+				push DI
+				mov DI, offset matrizNavios
+				call VALIDA_POSICAO ;verifica se a posição já está ocupada
+				pop DI
+			or BL, BL			;equivalente a comparar com zero (cmp BL, 0)
+			FALHO_VALIDACAO:
+			pop BX				;BX possui o contexto de página e cor
 			jz LER_NOVAMENTE	;se BL = 0, lê novamente
-			
+		
+		
+		
+		;Se chegou aqui é pq embarcação pode ser inserida na matriz
+		push SI
+		push BX
+		push DX
+		mov SI, offset matrizNavios
+		cmp AL, 'H'
+		mov AL, [DI]			;busca embarcação
+		jnz INSERIR_VERTICAL	;se AL != 'H', então insere verticalmente
+			call GRAVA_EMB_HORIZONTAL	;grava embarcação em AL com tamanho CL na posição AH na matriz em SI
+			jmp FIM_INSERIR
+		INSERIR_VERTICAL:
+			call GRAVA_EMB_VERTICAL		;grava embarcação em AL com tamanho CL na posição AH na matriz em SI
+		FIM_INSERIR:
+			mov DH, 5	;linha
+			mov DL, 30	;coluna
+			call ESCREVE_MATRIZ_NAVIOS
+		pop DX
+		pop BX
+		pop SI
+		
 		dec DH			;retorna uma linha
 		sub DL, 6		;retornar colunas
-		inc SI			;posiciona pra pegar o tamanho da próxima embarcação
+		inc SI			;posiciona para pegar o tamanho da próxima embarcação
+		inc DI			;posiciona para pegar a próxima embarcação
 		pop CX
 	loop LER_EMBARCACOES
-		
-    pop SI 
+	
+	;Faz o backup da matriz, caso o jogador deseja reiniciar o jogo com a mesma configuração
+	mov SI, offset matrizNavios
+	mov DI, offset matrizNaviosBackup
+	call COPIA_MATRIZ	;copia a "matriz" em SI para a matriz em DI
+	
+    pop DI
+	pop SI 
     pop BX
     pop DX      
     pop BP
     ret
 endp 
-
 
 
 INICIO:	mov AX, @data ; carrega valor inicial da stack
@@ -730,24 +895,24 @@ INICIO:	mov AX, @data ; carrega valor inicial da stack
 	mov AL, 03h ;código do modo desejado neste caso 80x25  8x8  texto 16 cores
     int 10h
 	
-	mov AL, 1	;define o número da página
-	call MUDA_PAGINA
-	call PRINT_TELA_INICIO
+	;mov AL, 1	;define o número da página
+	;call MUDA_PAGINA
+	;call PRINT_TELA_INICIO
 	
 	; chama prog ler S ou J  
-	call LER_CHAR_SJ
+	;call LER_CHAR_SJ
 	
 	mov AL, 2	;define o número da página
 	call MUDA_PAGINA
 	call PRINT_TELA_CONFIG
-	
 	call INSERE_BARCOS
-	call LER_CHAR
+
 	
-	mov AL, 3	;define o número da página
-	call MUDA_PAGINA
-	call PRINT_TELA_JOGO
-	;
+	;mov AL, 3	;define o número da página
+	;call MUDA_PAGINA
+	;call PRINT_TELA_JOGO
+	
+	
 	call LER_CHAR
 	
 	call SAIR_JOGO ; finaliza o jogo
