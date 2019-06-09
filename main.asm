@@ -30,7 +30,10 @@
 						db "Navio de Guerra"
 						db "   Submarino   "
 						db "   Destroyer   "
-						db "Barco Patrulha "
+						db "Barco Patrulha " 						
+	;0=tiros, 1=acertos, 2=afundados, 4=ultimo tiro(Computador apenas)
+	placarJogador       db 3 dup('00')  	
+	placarComputador    db 4 dup('00')					
 	vet_tam_embarcacoes	db 05,04,03,03,02
 	vet_Navios			db 'A','B','S','D','P'
 	matrizNavios 		db 100 dup(?)
@@ -636,6 +639,57 @@ PRINT_TELA_JOGO proc
     
 	DESEMPILHATUDO
 	ret
+endp 
+
+PRINT_PLACAR proc  
+    push BP
+    push BX
+    push CX
+    push DX
+    
+    mov BH, 3	    ;seta pagina 
+    mov DH, 5	    ;linha inicial
+    mov DL, 67 	    ;coluna inicial
+	mov BL, 7 	    ;cor: cinza claro  
+    
+     
+    ;PLACAR JOGADOR   
+    mov CX, 3           ;tamanho do vetor
+    mov BP, offset placarJogador
+		          
+    LACO_PLACAR:                
+        push CX
+        mov CX, 2       ;tamanho da string              
+        call ESC_STRING
+        pop CX          
+        add BP, 2       ;avanca pro proximo valor      
+        inc DH          ;pula uma linha 
+    loop LACO_PLACAR
+    
+    
+    add DH, 2       ;pula 2 linhas  
+    
+    
+    ;PLACAR COMPUTADOR       
+    mov CX, 4    ;tamanho do vetor
+    mov BP, offset placarComputador
+	        
+    LACO_PLACAR2:                
+        push CX
+        mov CX, 2   ;tamanho da string             
+        call ESC_STRING
+        pop CX         
+        add BP, 2   ;avanca pro proximo valor      
+        inc DH      ;pula uma linha       
+    loop LACO_PLACAR2 
+    
+      
+    pop DX
+    pop CX
+    pop BX
+    pop BP   
+    
+    ret
 endp
 
 PRINT_TELA_FINAL proc     
@@ -1159,7 +1213,7 @@ INICIO:	mov AX, @data ; carrega valor inicial da stack
 	mov SI, offset matrizNavios
 	call ESCREVE_MATRIZ_NAVIOS
 	call PRINT_TELA_JOGO
-	
+	call PRINT_PLACAR 
 	call LER_CHAR
 	
 	
