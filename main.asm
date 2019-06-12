@@ -1,46 +1,53 @@
 .model small
 .stack 100h
 .data
-    nomeJogo1 			db "Batalha"
-    nomeJogo2 			db "Naval"
-	textAutores			db "Autores:"
-    nomeAnderson 		db "Anderson Imperatori"    
-    nomeEduardo 		db "Eduardo Menzen"
-    opJogar 			db "Jogar"
-    opSair 				db "Sair"	
-	stringNumeros		db "0123456789"
-	tituloMatrizNavios 	db "Matriz de Navios"
-	tituloMatrizTiros 	db "Matriz de Tiros"
-	texConfig 			db "Digite a posicao do"
-	texVoce           	db "Voce"
-	texTiros          	db "Tiros:"
-	texAcertos        	db "Acertos:" 
-	texAfundados      	db "Afundados:"
-	texComputador     	db "Computador:"
-	texUltimoTiro     	db "Ultimo Tiro:"
-	textPosicao			db "Posicao:"
-	textMensagens		db "Mensagens:"
-	textFimdeJogo       db "   FIM DE JOGO   "
-	textVoceGanhou      db "   VOCE GANHOU   "
-	textPCGanhou        db "COMPUTADOR GANHOU" 
-	textNumJogadas      db "   XX Jogadas    "
-	textNovoJogo      	db "    Novo Jogo    "
-    textReiniciar       db "    Reiniciar    " 
-	vet_nome_embarcacoes 	db " Porta Avioes  "     
-						db "Navio de Guerra"
-						db "   Submarino   "
-						db "   Destroyer   "
-						db "Barco Patrulha " 						
-	;0=tiros, 1=acertos, 2=afundados, 4=ultimo tiro(Computador apenas)
-	placarJogador       db 3 dup('00')  	
-	placarComputador    db 4 dup('00')					
-	vet_tam_embarcacoes	db 05,04,03,03,02
-	vet_Navios			db 'A','B','S','D','P'
-	matrizNavios 		db 100 dup(?)
-	matrizNaviosPC 		db 100 dup(?)
-	matrizNaviosBackup 	db 100 dup(?)
-	varDelay			dw   1 dup(?)
-	
+    nomeJogo1 				db "Batalha"
+    nomeJogo2 				db "Naval"
+	textAutores				db "Autores:"
+    nomeAnderson 			db "Anderson Imperatori"    
+    nomeEduardo 			db "Eduardo Menzen"
+    opJogar 				db "Jogar"
+    opSair 					db "Sair"	
+	stringNumeros			db "0123456789"
+	tituloMatrizNavios 		db "Matriz de Navios"
+	tituloMatrizTiros 		db "Matriz de Tiros"
+	textConfig 				db "Digite a posicao do"
+	textVoce           		db "Voce"
+	textTiros          		db "Tiros:"
+	textAcertos        		db "Acertos:" 
+	textAfundados      		db "Afundados:"
+	textComputador     		db "Computador:"
+	textUltimoTiro     		db "Ultimo Tiro:"
+	textPosicao				db "Posicao:"
+	textMensagens			db "Mensagens:"
+	textFimdeJogo       	db "   FIM DE JOGO   "
+	textVoceGanhou      	db "   VOCE GANHOU   "
+	textPCGanhou        	db "COMPUTADOR GANHOU" 
+	textNumJogadas      	db "   XX Jogadas    "
+	textNovoJogo      		db "    Novo Jogo    "
+    textReiniciar       	db "    Reiniciar    "
+	textSuaVez				db "      SUA VEZ!       "
+	textAguardando			db "AGUARDANDO ADVERSARIO"
+	textAcertouAlgo			db "    ACERTOU ALGO!    "
+	textAcertouVazio		db "  NAO ACERTOU NADA!  "
+	textVoceVenceu			db "    VOCE VENCEU!     "
+	textVocePerdeu			db "    VOCE PERDEU!     "
+	textPosicaoJaInf		db "POSICAO JA INFORMADA "
+	vet_nome_embarcacoes	db " Porta Avioes  "     
+							db "Navio de Guerra"
+							db "   Submarino   "
+							db "   Destroyer   "
+							db "Barco Patrulha "
+	vet_tam_embarcacoes		db 05,04,03,03,02		;contém o tamanho de cada embarcação
+	vet_Navios				db 'A','B','S','D','P'	;contém o nome de cada embarcação
+	matrizNavios 			db 100 dup(?)
+	matrizNaviosPC 			db 100 dup(?)
+	matrizNaviosBackup 		db 100 dup(?)
+	varDelay				dw   1 dup(?)
+	;0=tiros, 1=acertos, 2=afundados (0:2 - Jogador):3=tiros, 4=acertos, 5=afundados 6=ultimo tiro(3:6 - Computador)	
+	vet_Resultados			db   7 dup(?)
+	vet_embarcacoes_jogador	db 05,04,03,03,02	;vetor com o tamanho das embarcações do jogador
+	vet_embarcacoes_PC		db 05,04,03,03,02	;vetor com o tamanho das embarcações do computador
 	
 .code
 EMPILHATUDO macro
@@ -84,7 +91,7 @@ BUSCA_TICKS proc
     ret
 endp
 
-GERA_POSICAO proc	;para gerar numeros aleátorios de 0 a 99
+GERA_POSICAO proc	;para gerar numeros aleátorios de 0 a 99 e devolve em AH
     push BX
 	push CX
     push DX
@@ -136,12 +143,13 @@ GERA_DIRECAO proc	;para gerar direção aleátoria devolvento V ou H em AL
     ret
 endp
 
-DELAY proc ;para gerar um delay
+DELAY proc ;para gerar um delay de 1 segundo
     push AX
+	push CX
 	push DX	
 	push SI
 	
-	mov AH, 00H
+	mov AH, 00H		;retorna a contagem de clock CX:DX (parte alta : parte baixa)
 	int	1AH
 	mov SI, offset varDelay
 	mov [SI], DX	
@@ -149,13 +157,66 @@ DELAY proc ;para gerar um delay
 		mov AH, 00H
 		int	1AH
 		sub DX, [SI]
-		cmp DX,9
+		cmp DX,18
 		ja FIM
 	jmp LOOPDELAY
 	FIM:
 	
 	pop SI	
 	pop DX
+	pop CX
+    pop AX     ; restaura o reg AX
+    ret  
+endp
+
+DELAY3 proc ;para gerar um delay de 3 segundos
+    push AX
+	push CX
+	push DX	
+	push SI
+	
+	mov AH, 00H		;retorna a contagem de clock CX:DX (parte alta : parte baixa)
+	int	1AH
+	mov SI, offset varDelay
+	mov [SI], DX	
+	LOOPDELAY3:
+		mov AH, 00H
+		int	1AH
+		sub DX, [SI]
+		cmp DX,54
+		ja FIM3
+	jmp LOOPDELAY3
+	FIM3:
+	
+	pop SI	
+	pop DX
+	pop CX
+    pop AX     ; restaura o reg AX
+    ret  
+endp
+
+DELAY5 proc ;para gerar um delay de 3 segundos
+    push AX
+	push CX
+	push DX	
+	push SI
+	
+	mov AH, 00H		;retorna a contagem de clock CX:DX (parte alta : parte baixa)
+	int	1AH
+	mov SI, offset varDelay
+	mov [SI], DX	
+	LOOPDELAY5:
+		mov AH, 00H
+		int	1AH
+		sub DX, [SI]
+		cmp DX,90
+		ja FIM5
+	jmp LOOPDELAY5
+	FIM5:
+	
+	pop SI	
+	pop DX
+	pop CX
     pop AX     ; restaura o reg AX
     ret  
 endp
@@ -169,6 +230,15 @@ LER_CHAR proc ; ler um caractere sem echo em AL (nao mostra na tela)
 MUDA_PAGINA proc ;muda para a página definida em AL
 	push AX
 		mov AH, 05h	;código da função: Selecione a página de exibição ativa
+		int 10h
+	pop AX
+	ret
+endp
+
+DEFINE_MODO_VIDEO proc ;define o modo de video
+	push AX
+		mov AH, 00h ;Define um modo de vídeo
+		mov AL, 03h ;código do modo desejado neste caso 80x25  8x8  texto 16 cores
 		int 10h
 	pop AX
 	ret
@@ -470,7 +540,7 @@ PRINT_TELA_CONFIG proc
 	inc DH
 	add DL, 2
 	mov CX, 19 	;tamanho da string
-	mov BP, offset texConfig
+	mov BP, offset textConfig
 	call ESC_STRING
 	
 	pop BP
@@ -519,14 +589,14 @@ PRINT_TELA_JOGO proc
 	
 	;desenhar tabela de tiros
 	;TODO: ALTERA DEPOIS PARA A SITUAÇÃO ABAIXO*****
-	PUSH DX
-	MOV DH, 5
-	MOV DL, 3
-	mov SI, offset matrizNaviosPC
-	call ESCREVE_MATRIZ_NAVIOS
-	POP DX
+	;PUSH DX
+	;MOV DH, 5
+	;MOV DL, 3
+	;mov SI, offset matrizNaviosPC
+	;call ESCREVE_MATRIZ_NAVIOS
+	;POP DX
 	;TODO************
-	;call PRINT_QUADRADOS_VERDES
+	call PRINT_QUADRADOS_VERDES
 	mov CX, 14  ;altura da retângulo
 	mov AX, 21  ;largura da retângulo
 	call PRINT_RETANGULO
@@ -563,7 +633,7 @@ PRINT_TELA_JOGO proc
 	inc DH  	;linha
 	inc DL  	;coluna
 	mov CX, 4	;tamanho da string
-	mov BP, offset texVoce
+	mov BP, offset textVoce
 	call ESC_STRING
 	
 	add DH, 4	;linha
@@ -573,7 +643,7 @@ PRINT_TELA_JOGO proc
 	inc DH  	;linha
 	inc DL  	;coluna
 	mov CX, 11	;tamanho da string
-	mov BP, offset texComputador
+	mov BP, offset textComputador
 	call ESC_STRING	
 	
 	sub DH, 6    ;linha
@@ -583,21 +653,21 @@ PRINT_TELA_JOGO proc
 		push CX
 		add DH,2  	;linha
 		mov CX, 6	;tamanho da string
-		mov BP, offset texTiros
+		mov BP, offset textTiros
 		call ESC_STRING
 		inc DH  	;linha
 		mov CX, 8	;tamanho da string
-		mov BP, offset texAcertos
+		mov BP, offset textAcertos
 		call ESC_STRING
 		inc DH  	;linha
 		mov CX, 10	;tamanho da string
-		mov BP, offset texAfundados
+		mov BP, offset textAfundados
 		call ESC_STRING
 		inc DH
 		pop CX
 	loop LACO
 	mov CX, 12	;tamanho da string
-	mov BP, offset texUltimoTiro
+	mov BP, offset textUltimoTiro
 	call ESC_STRING
     
     add DH, 4   ;linha
@@ -637,59 +707,14 @@ PRINT_TELA_JOGO proc
 	mov AL, 193	;caracter _|_
 	call ESC_CHAR_10	
     
+	mov DH, 5	;linha
+	mov DL, 27	;coluna
+	mov SI, offset matrizNavios
+	call ESCREVE_MATRIZ_NAVIOS
+	call ATUALIZA_RESULTADOS	;escreve resultados na tela de placar
+	
 	DESEMPILHATUDO
 	ret
-endp 
-
-PRINT_PLACAR proc  
-    push BP
-    push BX
-    push CX
-    push DX
-    
-    mov BH, 3	    ;seta pagina 
-    mov DH, 5	    ;linha inicial
-    mov DL, 67 	    ;coluna inicial
-	mov BL, 7 	    ;cor: cinza claro  
-    
-     
-    ;PLACAR JOGADOR   
-    mov CX, 3           ;tamanho do vetor
-    mov BP, offset placarJogador
-		          
-    LACO_PLACAR:                
-        push CX
-        mov CX, 2       ;tamanho da string              
-        call ESC_STRING
-        pop CX          
-        add BP, 2       ;avanca pro proximo valor      
-        inc DH          ;pula uma linha 
-    loop LACO_PLACAR
-    
-    
-    add DH, 2       ;pula 2 linhas  
-    
-    
-    ;PLACAR COMPUTADOR       
-    mov CX, 4    ;tamanho do vetor
-    mov BP, offset placarComputador
-	        
-    LACO_PLACAR2:                
-        push CX
-        mov CX, 2   ;tamanho da string             
-        call ESC_STRING
-        pop CX         
-        add BP, 2   ;avanca pro proximo valor      
-        inc DH      ;pula uma linha       
-    loop LACO_PLACAR2 
-    
-      
-    pop DX
-    pop CX
-    pop BX
-    pop BP   
-    
-    ret
 endp
 
 PRINT_TELA_FINAL proc     
@@ -697,6 +722,7 @@ PRINT_TELA_FINAL proc
 	push BX
 	push CX
 	push DX
+	push SI
 	push BP
 	
 	mov BH, 4	;define o numero da pagina
@@ -719,15 +745,11 @@ PRINT_TELA_FINAL proc
 	mov BP, offset textFimdeJogo
 	call ESC_STRING 
 	
-	;ACRESCENTAR TESTE PARA QUEM GANHOU
-	;texto VOCE GANHOU (PROVISORIO, varia quem ganhou)
+	;texto de quem ganhou passado pelo SI
 	mov BL, 4   ;cor: vermelha
 	add DH, 3	 ;linha
-		
-	mov BP, offset textVoceGanhou
-	mov BP, offset textPCGanhou
+	mov BP, SI	
 	call ESC_STRING 
-	
 	
 	;texto Numero de Jogadas
 	mov BL, 7 	;cor: cinza claro
@@ -747,9 +769,8 @@ PRINT_TELA_FINAL proc
 	mov BP, offset textNovoJogo
 	call ESC_STRING 
 	
-			
-	
 	pop BP
+	pop SI
 	pop DX
 	pop CX
 	pop BX
@@ -1169,15 +1190,460 @@ INSERE_BARCOS_COMPUTADOR proc ;insere os barcos na matriz de Navios do Computado
     pop DX      
     pop BP
     ret
-endp 
+endp
+
+DETERMINA_POSICAO proc ;recebe a posição em AH e retorna a linha em DH e a coluna em DL
+	push AX
+	push BX
+
+	xor BX, BX
+	mov AL, AH		;move a posição para AL
+	xor AH, AH		;zera a parte alta de AX
+	mov BL, 10		;divisor
+	div BL			;AH:AL <- AX/BL (resto:divisão)
+	mov DL, AH		;salva a coluna
+	mov DH, AL		;salva a linha
+	shl DL, 1		;equivalente a multiplicar por 2
+	
+	pop BX
+	pop AX
+	ret
+endp
+
+ESCREVE_MENSAGENS proc	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
+	push BX
+	push CX
+	push DX
+	push BP
+
+	mov BH, 3	;seta página
+	mov DH, 19	;linha
+	mov DL, 36	;coluna
+	mov CX, 21	;tamanho da string
+	call ESC_STRING	;escreve string iniciada em ES:BP, comprimento CX, BH: número da página, DH: linha, DL: coluna, BL: cor
+	
+	pop BP
+	pop DX
+	pop CX
+	pop BX	
+	ret
+endp
+
+LIMPA_CURSOR_POSICAO proc	;para limpar os caracteres na digitação das posições
+	push AX
+	push BX
+	push CX
+	
+	mov BH, 3	;seta página
+	mov DH, 18	;linha
+	mov DL, 11	;coluna
+	call MOV_CURSOR
+	mov CX, 3
+	mov AL, 00		;para limpar o texto no cursor
+	call ESC_CHAR_10	
+	
+	pop CX
+	pop BX
+	pop AX
+	ret
+endp
+
+ESC_PLACAR proc	;escreve números no placar recebe valor em AL, linha em DH e coluna em DL
+	push AX
+	push BX
+	push CX
+	push DX
+	
+	xor BX, BX
+	mov BL, 10	;seta divisor
+	div BL		;AL:AH (quociente:resto)
+	mov BH, 3	;define o numero da página
+	mov BL, 7 	;cor: cinza claro
+	call MOV_CURSOR
+	mov CX, 1
+	add AL, '0'	
+	call ESC_CHAR_10	;escreve caracter de AL, BL: cor, BH: número da página, CX: repetições
+	inc DL
+	call MOV_CURSOR
+	mov AL, AH
+	add AL, '0'	
+	call ESC_CHAR_10	;escreve caracter de AL, BL: cor, BH: número da página, CX: repetições
+	
+	pop DX
+	pop CX
+	pop BX
+	pop AX
+	ret
+endp
+
+ATUALIZA_RESULTADOS proc	;atualiza os resultados na tela de placar
+	push AX
+	push BX
+	push CX
+	push DX
+	push SI
+	
+	mov SI, offset vet_Resultados
+	xor AX, AX	;zera acumulador
+	mov DH, 5	;linha inicial
+	mov DL, 67 	;coluna inicial
+	mov CX, 3
+	ATU_LACO1:
+		lodsb		;AL <- DS:SI e inc SI
+		call ESC_PLACAR
+		inc DH		;incremente linha
+	loop ATU_LACO1
+	
+	add DH, 2
+	mov CX, 4
+	ATU_LACO2:
+		lodsb		;AL <- DS:SI e inc SI
+		call ESC_PLACAR
+		inc DH		;incremente linha
+	loop ATU_LACO2
+	
+	pop SI
+	pop DX
+	pop CX
+	pop BX
+	pop AX
+	ret
+endp
+
+TIRO_JOGADOR proc	;realiza a leitura do tiro do jogador verificando o mesmo
+    push BX
+    push CX
+    push DX
+    push SI
+    push DI
+    push BP
+	
+	mov DI, offset vet_Resultados
+		
+	REINICIAR_JOGADA:
+		mov BP, offset textSuaVez
+		mov BL, 2	;cor: verde
+		call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
+		
+		mov BH, 3	;seta página
+		mov BL, 7	;cor: cinza claro
+		mov DH, 18	;linha
+		mov DL, 11	;coluna
+		call LER_POSICAO	;devolve a posição em AH
+		call DELAY
+	
+		mov SI, offset matrizNaviosPC
+		xor BX, BX
+		mov BL, AH		;grava a posição em BL
+		call DETERMINA_POSICAO	;recebe a posição em AH e retorna a linha em DH e a coluna em DL
+		add DH, 5		;corrige linha
+		add DL, 4 		;corrige coluna
+		mov CX, 1		;para escrever apenas uma vez o caractere
+		
+		mov AL, [SI+BX]	;move o conteúdo da matriz para AL
+		or AL, AL		;equivalente a compara com zero
+		jz	ACERTOU_VAZIO
+		cmp AL, 'A'
+		jz	ACERTOU_PORTA_AVIOES
+		cmp AL, 'B'
+		jz	ACERTOU_NAVIO_GUERRA
+		cmp AL, 'S'
+		jz	ACERTOU_SUBMARINO
+		cmp AL, 'D'
+		jz	ACERTOU_DESTROYER
+		cmp AL, 'P'
+		jz	ACERTOU_BARCO_PATRULHA
+		jmp MESMA_JOGADA
+	
+	ACERTOU_VAZIO:	
+		jmp ESCREVE_X
+	ACERTOU_PORTA_AVIOES:
+		mov SI, offset vet_embarcacoes_PC
+		dec byte ptr[SI]	;decrementa o tamanho da embarcação do computador para saber quando afundou
+		jz  AFUNDOU_EMBARCACAO
+		jmp ESCREVE_BOLINHA
+	ACERTOU_NAVIO_GUERRA:
+		mov SI, offset vet_embarcacoes_PC
+		dec byte ptr[SI+1]
+		jz  AFUNDOU_EMBARCACAO
+		jmp ESCREVE_BOLINHA
+	ACERTOU_SUBMARINO:
+		mov SI, offset vet_embarcacoes_PC
+		dec byte ptr[SI+2]
+		jz  AFUNDOU_EMBARCACAO
+		jmp ESCREVE_BOLINHA
+	ACERTOU_DESTROYER:
+		mov SI, offset vet_embarcacoes_PC
+		dec byte ptr[SI+3]
+		jz  AFUNDOU_EMBARCACAO
+		jmp ESCREVE_BOLINHA
+	ACERTOU_BARCO_PATRULHA:
+		mov SI, offset vet_embarcacoes_PC
+		dec byte ptr[SI+4]
+		jz  AFUNDOU_EMBARCACAO
+		
+		
+		
+		jmp ESCREVE_BOLINHA
+	MESMA_JOGADA:
+		call LIMPA_CURSOR_POSICAO
+		mov BP, offset textPosicaoJaInf
+		mov BL, 4	;cor: vermelha
+		call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
+		call DELAY3
+		jmp REINICIAR_JOGADA
+	
+	ESCREVE_X:
+		mov SI, offset matrizNaviosPC
+		mov AL, 'x'
+		mov byte ptr[SI+BX], AL
+		mov BH, 3	;página
+		mov BL, 4	;cor: vermelha
+		call MOV_CURSOR
+		call ESC_CHAR_10
+		call LIMPA_CURSOR_POSICAO
+		mov BP, offset textAcertouVazio		
+	jmp FIM_VERIFICA
+		
+	AFUNDOU_EMBARCACAO:
+		inc byte ptr[DI+5]		;incrementa o número de embarcações afundadas do computador 
+	ESCREVE_BOLINHA:
+		mov SI, offset matrizNaviosPC
+		mov AL, 'o'
+		mov byte ptr[SI+BX], AL
+		mov BH, 3	;página
+		mov BL, 2	;cor: verde
+		call MOV_CURSOR
+		call ESC_CHAR_10
+		call LIMPA_CURSOR_POSICAO
+		mov BP, offset textAcertouAlgo
+		inc byte ptr[DI+1]	;incrementa o número de acertos do jogador
+	jmp FIM_VERIFICA	
+		
+	FIM_VERIFICA:
+	inc byte ptr[DI]	;incrementa o número de tiros do jogador
+	call ATUALIZA_RESULTADOS
+	mov BL, 4		;cor: vermelha
+	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
+	call DELAY3
+	cmp byte ptr[DI+5], 5	;quando chegar a 5 é porque afundou todas as embarcações do computador
+	jnz FIM_JOGADA_JOGADOR
+	mov BP, offset textVoceVenceu
+	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
+	call DELAY5
+	jmp  FIM_JOGO
+	
+	
+	FIM_JOGADA_JOGADOR:
+	mov BP, offset textAguardando
+	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
+	call DELAY3
+	xor AX, AX	;zera AX, para indicar que o jogo não chegou ao fim
+	jmp FINAL
+	
+	FIM_JOGO:
+	mov AX, 1	;seta AX, para informar o fim do jogo
+	FINAL:
+	
+	pop BP
+    pop DI
+    pop SI
+    pop DX
+    pop CX
+    pop BX
+	ret
+endp
+
+GERA_POSICAO_ESTRATEGICA proc ;método para gerar posições estratégicamente para o computador
+	push BX
+	
+	xor BX, BX
+	mov BL, byte ptr[DI+6]	;busca a posição do último tiro
+	cmp byte ptr[SI+BX], 'o';verifica se foi um tiro certeiro
+	jnz FIM_GERA2
+	inc BL
+	jmp FIM_GERA
+	
+	FIM_GERA2:
+		xor AL, AL	;informa que deverá gerar uma nova posição aleátoria
+		jmp FINAL_GERA
+	FIM_GERA:
+		mov AH, BL
+		mov AL, 1
+	FINAL_GERA:
+	
+	pop BX
+	ret
+endp
+
+TIRO_COMPUTADOR proc ;gera tiro computador e verifica o mesmo
+    push BX
+    push CX
+    push DX
+    push SI
+    push DI
+    push BP
+	
+	mov DI, offset vet_Resultados
+	
+	REINICIAR_JOGADA2:
+		mov SI, offset matrizNavios
+		call GERA_POSICAO_ESTRATEGICA
+		or AL, AL
+		jz GERAR_POS
+		jmp CONTINUAR
+		
+		GERAR_POS:
+		call GERA_POSICAO	;devolve a posição em AH
+		CONTINUAR:
+		xor BX, BX
+		mov BL, AH			;grava a posição em BL para usar como base posteriormente
+		mov [DI+6],	BL		;salva a posição do último tiro do computador
+		call DETERMINA_POSICAO	;recebe a posição em AH e retorna a linha em DH e a coluna em DL
+		add DH, 5		;corrige linha
+		add DL, 28 		;corrige coluna
+		mov CX, 1		;para escrever apenas uma vez o caractere
+		
+		mov AL, [SI+BX]	;move o conteúdo da matriz para AL
+		or AL, AL		;equivalente a compara com zero
+		jz	ACERTOU_VAZIO2
+		cmp AL, 'A'
+		jz	ACERTOU_PORTA_AVIOES2
+		cmp AL, 'B'
+		jz	ACERTOU_NAVIO_GUERRA2
+		cmp AL, 'S'
+		jz	ACERTOU_SUBMARINO2
+		cmp AL, 'D'
+		jz	ACERTOU_DESTROYER2
+		cmp AL, 'P'
+		jz	ACERTOU_BARCO_PATRULHA2
+		jmp MESMA_JOGADA2
+	
+	ACERTOU_VAZIO2:	
+		jmp ESCREVE_QUADRADO
+	ACERTOU_PORTA_AVIOES2:
+		mov AL, 'A'
+		mov SI, offset vet_embarcacoes_jogador
+		dec byte ptr[SI]	;decrementa o tamanho da embarcação do jogador para saber quando afundou
+		jz  AFUNDOU_EMBARCACAO2
+		jmp ESCREVE_LETRA
+	ACERTOU_NAVIO_GUERRA2:
+		mov AL, 'B'
+		mov SI, offset vet_embarcacoes_jogador
+		dec byte ptr[SI+1]	;decrementa o tamanho da embarcação do jogador para saber quando afundou
+		jz  AFUNDOU_EMBARCACAO2
+		jmp ESCREVE_LETRA
+	ACERTOU_SUBMARINO2:
+		mov AL, 'S'
+		mov SI, offset vet_embarcacoes_jogador
+		dec byte ptr[SI+2]	;decrementa o tamanho da embarcação do jogador para saber quando afundou
+		jz  AFUNDOU_EMBARCACAO2
+		jmp ESCREVE_LETRA
+	ACERTOU_DESTROYER2:
+		mov AL, 'D'
+		mov SI, offset vet_embarcacoes_jogador
+		dec byte ptr[SI+3]	;decrementa o tamanho da embarcação do jogador para saber quando afundou
+		jz  AFUNDOU_EMBARCACAO2
+		jmp ESCREVE_LETRA
+	ACERTOU_BARCO_PATRULHA2:
+		mov AL, 'P'
+		mov SI, offset vet_embarcacoes_jogador
+		dec byte ptr[SI+4]	;decrementa o tamanho da embarcação do jogador para saber quando afundou
+		jz  AFUNDOU_EMBARCACAO2
+		jmp ESCREVE_LETRA
+	MESMA_JOGADA2:
+		jmp REINICIAR_JOGADA2
+	
+	ESCREVE_QUADRADO:
+		mov SI, offset matrizNavios
+		mov AL, 254	;quadrado
+		mov byte ptr[SI+BX], AL
+		mov BH, 3	;página
+		mov BL, 4	;cor: vermelha
+		call MOV_CURSOR
+		call ESC_CHAR_10
+	jmp FIM_VERIFICA2
+	
+	AFUNDOU_EMBARCACAO2:
+		inc byte ptr[DI+2]	;incrementa o número de embarcações afundadas do jogador
+	ESCREVE_LETRA:
+		mov SI, offset matrizNavios
+		push BX		;salva a posição
+		mov BH, 3	;página
+		mov BL, 4	;cor: vermelha
+		call MOV_CURSOR
+		call ESC_CHAR_10
+		pop BX
+		mov AL, 'o'
+		mov byte ptr[SI+BX], AL
+		inc byte ptr[DI+4]	;incrementa o número de acertos do computador
+	jmp FIM_VERIFICA2	
+		
+	FIM_VERIFICA2:
+	inc byte ptr[DI+3]	;incrementa o número de tiros do computador
+	call ATUALIZA_RESULTADOS
+	cmp byte ptr[DI+2], 5	;quando chegar a 5 é porque afundou todas as embarcações do jogador
+	jnz FIM_JOGADA_COMPUTADOR
+	mov BP, offset textVocePerdeu
+	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
+	call DELAY5
+	jmp  FIM_JOGO2
+	
+	
+	FIM_JOGADA_COMPUTADOR:
+	xor AX, AX	;zera AX, para indicar que o jogo não chegou ao fim
+	jmp FINAL2
+	
+	FIM_JOGO2:
+	mov AX, 2	;seta AX, para informar o fim do jogo
+	FINAL2:
+		
+	pop BP
+    pop DI
+    pop SI
+    pop DX
+    pop CX
+    pop BX
+	ret
+endp
+
+REINICIAR_CONTADORES proc	;zera contadores no caso de reinicio ou novo jogo
+	push AX
+	push CX
+	push DI
+	
+	mov DI, offset vet_Resultados
+	mov CX, 7
+	mov AL, 0
+	ZERA_VET:	;para zerar o vetor de resultados
+		stosb	;ES:DI <- AL e decrementa DI
+	loop ZERA_VET
+	
+	mov SI, offset vet_tam_embarcacoes
+	mov DI, offset vet_embarcacoes_jogador
+	mov CX, 5
+	ZERA_VET2:	;reconfigura o tamanho das embarcações do jogador para saber quando afundam
+		movsb	;ES:DI <- DS:SI e inc SI e DI
+	loop ZERA_VET2
+
+	mov SI, offset vet_tam_embarcacoes
+	mov DI, offset vet_embarcacoes_PC
+	mov CX, 5
+	ZERA_VET3:	;reconfigura o tamanho das embarcações do computador para saber quando afundam
+		movsb	;ES:DI <- DS:SI e inc SI e DI
+	loop ZERA_VET3	
+	
+	pop DI
+	pop CX
+	pop AX
+	ret
+endp
 
 INICIO:	mov AX, @data ; carrega valor inicial da stack
 	mov DS, AX
 	mov ES, AX	;para poder utilizar a função 13h da int 10H
-	mov AH, 00h ;Define um modo de vídeo
-	mov AL, 03h ;código do modo desejado neste caso 80x25  8x8  texto 16 cores
-    int 10h
 	
+	call DEFINE_MODO_VIDEO
 	NOVO_JOGO:
 	mov AL, 1	;define o número da página
 	call MUDA_PAGINA
@@ -1200,23 +1666,39 @@ INICIO:	mov AX, @data ; carrega valor inicial da stack
 	mov SI, offset matrizNaviosBackup
 	mov DI, offset matrizNavios
 	call COPIA_MATRIZ	;copia a "matriz" em SI para a matriz em DI
-	
+
 	NOVA_JOGADA:
-	call INSERE_BARCOS_COMPUTADOR	;gera posições das embarcações do computador
+	mov AL, 0	;define o número da página
+	call MUDA_PAGINA
+	call DEFINE_MODO_VIDEO	;ao definir um novo modo de video, limpa as telas	
+	
 	mov AL, 3	;define o número da página
 	call MUDA_PAGINA
-	call PRINT_TELA_JOGO
-	mov BH, 3	;seta página
-	mov BL, 7	;cor: cinza claro
-	mov DH, 5	;linha
-	mov DL, 27	;coluna
-	mov SI, offset matrizNavios
-	call ESCREVE_MATRIZ_NAVIOS
-	call PRINT_TELA_JOGO
-	call PRINT_PLACAR 
-	call LER_CHAR
+	call INSERE_BARCOS_COMPUTADOR	;gera posições das embarcações do computador
+	call REINICIAR_CONTADORES
 	
+	;mov BH, 3	;seta página
+	;mov BL, 7	;cor: cinza claro
+	call PRINT_TELA_JOGO
+	EVOLUCAO_JOGO:
+		xor AX, AX		;zera AX
+		call TIRO_JOGADOR
+		or AX, AX		;testa se já terminou o jogo
+		jnz TELA_FIM		
+		call TIRO_COMPUTADOR
+		or AX, AX		;testa se já terminou o jogo
+		jnz TELA_FIM	
+	jmp EVOLUCAO_JOGO
+
+	TELA_FIM:
+	cmp AX, 1			;se o valor de AX for 1 é pq o jogador ganhou senão será o computador
+	jz JOGADOR_GANHOU
+	mov SI, offset textPCGanhou
+	jmp CONTINUA5
+	JOGADOR_GANHOU:
+	mov SI, offset textVoceGanhou
 	
+	CONTINUA5:
 	mov AL, 4				;define o número da página
 	call MUDA_PAGINA                
 	call PRINT_TELA_FINAL
