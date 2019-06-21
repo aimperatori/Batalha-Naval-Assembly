@@ -1,6 +1,7 @@
 .model small
 .stack 100h
 .data
+	QUADRADO 				EQU 254 ;codigo do QUADRADO
     nomeJogo1 				db "Batalha"
     nomeJogo2 				db "Naval"
 	textAutores				db "Autores:"
@@ -565,7 +566,7 @@ PRINT_QUADRADOS_VERDES proc
 			call MOV_CURSOR
 			push CX
 			mov CX, 1
-			mov AL, 254	;quadrado
+			mov AL, QUADRADO	;quadrado
 			call ESC_CHAR_10
 			add DL, 2
 			pop CX
@@ -589,14 +590,14 @@ PRINT_TELA_JOGO proc
 	
 	;desenhar tabela de tiros
 	;TODO: ALTERA DEPOIS PARA A SITUAÇÃO ABAIXO*****
-	;PUSH DX
-	;MOV DH, 5
-	;MOV DL, 3
-	;mov SI, offset matrizNaviosPC
-	;call ESCREVE_MATRIZ_NAVIOS
-	;POP DX
+	PUSH DX
+	MOV DH, 5
+	MOV DL, 3
+	mov SI, offset matrizNaviosPC
+	call ESCREVE_MATRIZ_NAVIOS
+	POP DX
 	;TODO************
-	call PRINT_QUADRADOS_VERDES
+	;call PRINT_QUADRADOS_VERDES
 	mov CX, 14  ;altura da retângulo
 	mov AX, 21  ;largura da retângulo
 	call PRINT_RETANGULO
@@ -732,12 +733,7 @@ PRINT_TELA_FINAL proc
 	mov CX, 14  ;altura da retângulo
 	mov AX, 21  ;largura da retângulo
 	call PRINT_RETANGULO 
-	
-	;linha central	
-	;add DH, 10	;linha	
-	;mov AX, 21  ;tamanho da linha
-	;call PRINT_LINHA_CENTRAL
-	
+		
 	;texto Fim de Jogo 	
 	inc DH   ;linha	
 	add DL, 3   ;coluna
@@ -1390,7 +1386,7 @@ TIRO_JOGADOR proc	;realiza a leitura do tiro do jogador verificando o mesmo
 		mov BP, offset textPosicaoJaInf
 		mov BL, 4	;cor: vermelha
 		call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
-		call DELAY3
+		;call DELAY3
 		jmp REINICIAR_JOGADA
 	
 	ESCREVE_X:
@@ -1425,19 +1421,19 @@ TIRO_JOGADOR proc	;realiza a leitura do tiro do jogador verificando o mesmo
 	call ATUALIZA_RESULTADOS
 	mov BL, 4		;cor: vermelha
 	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
-	call DELAY3
+	;call DELAY3
 	cmp byte ptr[DI+5], 5	;quando chegar a 5 é porque afundou todas as embarcações do computador
 	jnz FIM_JOGADA_JOGADOR
 	mov BP, offset textVoceVenceu
 	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
-	call DELAY5
+	;call DELAY5
 	jmp  FIM_JOGO
 	
 	
 	FIM_JOGADA_JOGADOR:
 	mov BP, offset textAguardando
 	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
-	call DELAY3
+	;call DELAY3
 	xor AX, AX	;zera AX, para indicar que o jogo não chegou ao fim
 	jmp FINAL
 	
@@ -1454,24 +1450,128 @@ TIRO_JOGADOR proc	;realiza a leitura do tiro do jogador verificando o mesmo
 	ret
 endp
 
+VERIFICA_MESMA_LINHA_COLUNA proc ;recebe posição do último tiro em BH e verifica se a posição estratégica em AL está na mesma linha
+	push AX				  ;devolve em BX, se pertence ou não pertence à mesma linha (BL=1 ou BL=0) e se pertence ou não pertence à mesma coluna (BH=1 ou BH=0)
+	push DX
+	mov BL, 10	;seta divisor
+	xor AH, AH	;zera parte alta de AX
+	div BL		;AL:AH <- AX/BL (quociente:resto)
+	mov DX, AX	;salva resultado em DX (DL: linha e DH: coluna da posição estratégica)
+	xor AX, AX
+	mov AL, BH	;busca a posição do último tiro
+	div BL		;AL:AH <- AX/BL (quociente:resto) (AL: linha e AH: coluna da posição do último tiro)
+	
+	xor BX, BX	;seta BX para informar que nao pertence a mesma linha ou coluna
+	cmp AL, DL
+	jnz TESTA_COLUNA
+	mov BL, 1	
+  TESTA_COLUNA:
+	cmp AH, DH
+	jnz FIM_TESTE
+	mov BH, 1
+	
+	FIM_TESTE:
+	
+	pop DX
+	pop AX
+	ret
+endp
+
 GERA_POSICAO_ESTRATEGICA proc ;método para gerar posições estratégicamente para o computador
+;devolve em AL: 0 se tem que gerar uma nova posição ou 1 se deve considerar a posição retornada em AH
 	push BX
+	push SI
 	
-	xor BX, BX
-	mov BL, byte ptr[DI+6]	;busca a posição do último tiro
-	cmp byte ptr[SI+BX], 'o';verifica se foi um tiro certeiro
-	jnz FIM_GERA2
-	inc BL
-	jmp FIM_GERA
+	xor AX, AX
+	mov AL, byte ptr[DI+6]	;busca a posição do último tiro
+	mov BH, AL				;salva a posição do último tiro
+	add SI, AX	;adiciona a posição do último tiro ao índice da matriz
+	cmp byte ptr[SI], 'o';verifica se foi um tiro certeiro
+	jz	VER_DIREITA
+	jmp	VER_ESQUERDA_ERRO	;se não foi um tiro certeiro, acertou o vazio
 	
-	FIM_GERA2:
-		xor AL, AL	;informa que deverá gerar uma nova posição aleátoria
+	VER_DIREITA:		
+		cmp byte ptr[SI+1], 'o';verifica se a posição à direita já foi atingida
+		jz VER_ESQUERDA_ACERTO
+		cmp byte ptr[SI+1], QUADRADO;verifica se a posição à direita já foi atingida
+		jz VER_ESQUERDA
+		inc AL
+		call VERIFICA_MESMA_LINHA_COLUNA
+		or BL, BL		;verifica se a nova posição está na mesma linha do último tiro
+		jz GERA_NOVA	;se não estiver, deve gerar uma nova posição aleátoria
+		jmp FIM_GERA
+	
+	VER_ESQUERDA_ERRO:
+		dec AL	;se a posição à esquerda não foi atingida.. retorna a mesma para o próximo tiro
+		dec SI
+		cmp byte ptr[SI], 'o'		;verifica se a posição à esquerda já foi atingida
+		jz VER_ESQUERDA_ACERTO
+		jmp GERA_NOVA
+	
+	VER_ESQUERDA:
+		dec AL	;se a posição à esquerda não foi atingida.. retorna a mesma para o próximo tiro
+		dec SI
+		cmp byte ptr[SI], 'o'		;verifica se a posição à esquerda já foi atingida
+		jz VER_ESQUERDA_ACERTO
+		cmp byte ptr[SI], QUADRADO	;verifica se a posição à esquerda já foi atingida numa posição vazia
+		jz VER_ACIMA		;verifica na direção vertical
+		call VERIFICA_MESMA_LINHA_COLUNA
+		or BL, BL		;verifica se a nova posição está na mesma linha do último tiro
+		jz GERA_NOVA	;se não estiver, deve gerar uma nova posição aleátoria
+		jmp FIM_GERA
+	
+	VER_ESQUERDA_ACERTO:
+		dec AL	;se a posição à esquerda não foi atingida.. retorna a mesma para o próximo tiro
+		dec SI
+		cmp byte ptr[SI], 'o'		;verifica se a posição à esquerda já foi atingida
+		jz VER_ESQUERDA_ACERTO
+		cmp byte ptr[SI], QUADRADO
+		jz VER_ACIMA
+		jmp FIM_GERA
+		
+	VER_ACIMA:		
+		inc AL
+		inc SI
+	VER_ACIMA2:
+		sub AL, 10
+		sub SI, 10
+		cmp byte ptr[SI], 'o'
+		jz VER_ACIMA2
+		cmp byte ptr[SI], QUADRADO
+		jz VER_ABAIXO
+		call VERIFICA_MESMA_LINHA_COLUNA
+		or BH, BH		;verifica se a nova posição está na mesma coluna do último tiro
+		jz GERA_NOVA	;se não estiver, deve gerar uma nova posição aleátoria
+		jmp FIM_GERA
+		
+	VER_ABAIXO:
+		add AL, 10
+		add SI, 10
+	VER_ABAIXO2:	
+		add AL, 10
+		add SI, 10
+		cmp byte ptr[SI], 'o'
+		jz VER_ABAIXO2
+		cmp byte ptr[SI], QUADRADO
+		jz GERA_NOVA
+		call VERIFICA_MESMA_LINHA_COLUNA
+		or BH, BH		;verifica se a nova posição está na mesma coluna do último tiro
+		jz GERA_NOVA	;se não estiver, deve gerar uma nova posição aleátoria
+		jmp FIM_GERA
+		
+	GERA_NOVA:
+		xor AX, AX	;informa que deverá gerar uma nova posição aleátoria
 		jmp FINAL_GERA
-	FIM_GERA:
-		mov AH, BL
+	FIM_GERA:	;verifica se a posição está dentro dos limites da matriz
+		cmp AL, 0
+		jl	GERA_NOVA	;salta se AL < 0 levando em consideração o sinal
+		cmp AL, 99		
+		ja  GERA_NOVA	;salta se AL > 99 sem levar em consideração o sinal
+		mov AH, AL
 		mov AL, 1
 	FINAL_GERA:
 	
+	pop SI
 	pop BX
 	ret
 endp
@@ -1556,7 +1656,7 @@ TIRO_COMPUTADOR proc ;gera tiro computador e verifica o mesmo
 	
 	ESCREVE_QUADRADO:
 		mov SI, offset matrizNavios
-		mov AL, 254	;quadrado
+		mov AL, QUADRADO	;quadrado
 		mov byte ptr[SI+BX], AL
 		mov BH, 3	;página
 		mov BL, 4	;cor: vermelha
@@ -1586,7 +1686,7 @@ TIRO_COMPUTADOR proc ;gera tiro computador e verifica o mesmo
 	jnz FIM_JOGADA_COMPUTADOR
 	mov BP, offset textVocePerdeu
 	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
-	call DELAY5
+	;call DELAY5
 	jmp  FIM_JOGO2
 	
 	
@@ -1635,6 +1735,41 @@ REINICIAR_CONTADORES proc	;zera contadores no caso de reinicio ou novo jogo
 	
 	pop DI
 	pop CX
+	pop AX
+	ret
+endp
+
+MENSAGENS_TELA_FIM proc	;recebe quem ganhou em AX, devolve em SI a mensagem certa
+	push AX
+	push BX
+	push DI
+	
+	xor BX, BX
+	mov BX, 10	;seta divisor
+	mov SI, offset vet_Resultados	;busca o offset do vetor de resultados
+	mov DI, offset textNumJogadas	;busca o offset do texto de jogadas
+	
+	cmp AX, 1			;se o valor de AX for 1 é pq o jogador ganhou senão será o computador
+	jz JOGADOR_GANHOU
+	xor AX, AX
+	mov AL, [SI+3]		;busca número de jogadas do computador
+	mov SI, offset textPCGanhou
+	jmp FIM_MENSAGEM
+	
+  JOGADOR_GANHOU:
+	xor AX, AX
+	mov AL, [SI]		;busca número de jogadas do jogador	
+	mov SI, offset textVoceGanhou
+	
+  FIM_MENSAGEM:
+	div BL	;AL:AH <- AX/BL (quociente:resto)
+	add AL, '0'	;transforma em char
+	add AH, '0'	;transforma em char
+	mov byte ptr[DI+3], AL
+	mov byte ptr[DI+4], AH
+  
+	pop DI
+	pop BX
 	pop AX
 	ret
 endp
@@ -1691,14 +1826,7 @@ INICIO:	mov AX, @data ; carrega valor inicial da stack
 	jmp EVOLUCAO_JOGO
 
 	TELA_FIM:
-	cmp AX, 1			;se o valor de AX for 1 é pq o jogador ganhou senão será o computador
-	jz JOGADOR_GANHOU
-	mov SI, offset textPCGanhou
-	jmp CONTINUA5
-	JOGADOR_GANHOU:
-	mov SI, offset textVoceGanhou
-	
-	CONTINUA5:
+	call MENSAGENS_TELA_FIM
 	mov AL, 4				;define o número da página
 	call MUDA_PAGINA                
 	call PRINT_TELA_FINAL
