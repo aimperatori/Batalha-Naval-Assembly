@@ -45,8 +45,8 @@
 	matrizNaviosPC 			db 100 dup(?)
 	matrizNaviosBackup 		db 100 dup(?)
 	varDelay				dw   1 dup(?)
-	;0=tiros, 1=acertos, 2=afundados (0:2 - Jogador):3=tiros, 4=acertos, 5=afundados 6=ultimo tiro(3:6 - Computador)	
-	vet_Resultados			db   7 dup(?)
+	;0=tiros, 1=acertos, 2=afundados (0:2 - Jogador):3=tiros, 4=acertos, 5=afundados 6=ultimo tiro(3:6 - Computador) 7=modo de jogo(0=aleátorio 1=estratégico)	
+	vet_Resultados			db   8 dup(?)
 	vet_embarcacoes_jogador	db 05,04,03,03,02	;vetor com o tamanho das embarcações do jogador
 	vet_embarcacoes_PC		db 05,04,03,03,02	;vetor com o tamanho das embarcações do computador
 	
@@ -1729,9 +1729,9 @@ REINICIAR_CONTADORES proc	;zera contadores no caso de reinicio ou novo jogo
 	mov SI, offset vet_tam_embarcacoes
 	mov DI, offset vet_embarcacoes_PC
 	mov CX, 5
-	ZERA_VET3:	;reconfigura o tamanho das embarcações do computador para saber quando afundam
-		movsb	;ES:DI <- DS:SI e inc SI e DI
-	loop ZERA_VET3	
+	;reconfigura o tamanho das embarcações do computador para saber quando afundam
+	rep movsb	;ES:DI <- DS:SI e inc SI e DI
+
 	
 	pop DI
 	pop CX
