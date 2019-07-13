@@ -9,7 +9,7 @@
     nomeEduardo 			db "Eduardo Menzen"
     opJogar 				db "Jogar"
     opSair 					db "Sair"	
-	stringNumeros			db "0123456789"
+	stringNumeros			db "0 1 2 3 4 5 6 7 8 9"
 	tituloMatrizNavios 		db "Matriz de Navios"
 	tituloMatrizTiros 		db "Matriz de Tiros"
 	textConfig 				db "Digite a posicao do"
@@ -45,8 +45,8 @@
 	matrizNaviosPC 			db 100 dup(?)
 	matrizNaviosBackup 		db 100 dup(?)
 	varDelay				dw   1 dup(?)
-	;0=tiros, 1=acertos, 2=afundados (0:2 - Jogador):3=tiros, 4=acertos, 5=afundados 6=ultimo tiro(3:6 - Computador) 7=modo de jogo(0=aleátorio 1=estratégico)	
-	vet_Resultados			db   8 dup(?)
+	;0=tiros, 1=acertos, 2=afundados (0:2 - Jogador):3=tiros, 4=acertos, 5=afundados 6=ultimo tiro(3:6 - Computador)	
+	vet_Resultados			db   7 dup(?)
 	vet_embarcacoes_jogador	db 05,04,03,03,02	;vetor com o tamanho das embarcações do jogador
 	vet_embarcacoes_PC		db 05,04,03,03,02	;vetor com o tamanho das embarcações do computador
 	
@@ -100,8 +100,7 @@ GERA_POSICAO proc	;para gerar numeros aleátorios de 0 a 99 e devolve em AH
 	call BUSCA_TICKS
 	mov BL, 7	;multiplicador (0 < a < m)
 	mul BL		;AX <- AL*BL
-	mov BX, 1   ;incremento (0 <= c < m)
-	add AX, BX
+	inc AX		;incremento (0 <= c < m)
 	mov BL, 100	;para gerar de 0 a 99 (0 a m-1)
 	div BL		;AL:AH <- AX/BL (quociente:resto)
 	
@@ -116,27 +115,23 @@ GERA_DIRECAO proc	;para gerar direção aleátoria devolvento V ou H em AL
     push CX
     push DX
 	
-	mov BH, AH	;salva valor de AH
-	push BX
+	push AX		;salva valor de AX
 	call BUSCA_TICKS
 	mov BL, 1	;multiplicador (0 < a < m)
-	mul BL		;AX <- AL*BL
-	mov BX, 1   ;incremento (0 <= c < m)
-	add AX, BX
+	mul BL		;AX <- AL*BL  
+	inc AX		;incremento (0 <= c < m)
 	mov BL, 2	;para gerar de 0 a 1 (0 a m-1)
 	div BL		;AL:AH <- AX/BL (quociente:resto)
 	
 	cmp AH, 0
-	JZ  DIR_HORIZONTAL
+	pop AX		;retorna o valor de AX
+	jz  DIR_HORIZONTAL
 	mov AL, 'V'
 	jmp FIM_GERA_DIRECAO
 	
 	DIR_HORIZONTAL:
 	mov AL, 'H'
-	
 	FIM_GERA_DIRECAO:
-	pop BX
-	mov AH, BH	;retorna valor de AH
 	
     pop DX
     pop CX
@@ -171,54 +166,26 @@ DELAY proc ;para gerar um delay de 1 segundo
 endp
 
 DELAY3 proc ;para gerar um delay de 3 segundos
-    push AX
 	push CX
-	push DX	
-	push SI
 	
-	mov AH, 00H		;retorna a contagem de clock CX:DX (parte alta : parte baixa)
-	int	1AH
-	mov SI, offset varDelay
-	mov [SI], DX	
+	mov CX, 3		;o valor em segundos do delay
 	LOOPDELAY3:
-		mov AH, 00H
-		int	1AH
-		sub DX, [SI]
-		cmp DX,54
-		ja FIM3
-	jmp LOOPDELAY3
-	FIM3:
+		call DELAY
+	loop LOOPDELAY3
 	
-	pop SI	
-	pop DX
 	pop CX
-    pop AX     ; restaura o reg AX
     ret  
 endp
 
-DELAY5 proc ;para gerar um delay de 3 segundos
-    push AX
+DELAY5 proc ;para gerar um delay de 5 segundos
 	push CX
-	push DX	
-	push SI
 	
-	mov AH, 00H		;retorna a contagem de clock CX:DX (parte alta : parte baixa)
-	int	1AH
-	mov SI, offset varDelay
-	mov [SI], DX	
+	mov CX, 5		;o valor em segundos do delay
 	LOOPDELAY5:
-		mov AH, 00H
-		int	1AH
-		sub DX, [SI]
-		cmp DX,90
-		ja FIM5
-	jmp LOOPDELAY5
-	FIM5:
+		call DELAY
+	loop LOOPDELAY5
 	
-	pop SI	
-	pop DX
 	pop CX
-    pop AX     ; restaura o reg AX
     ret  
 endp
 
@@ -276,7 +243,6 @@ ESC_STRING proc ;escreve string iniciada em ES:BP, comprimento CX, BH: número d
 	ret
 endp
 
-
 PRINT_BORDAS proc ;escreve as bordas laterais para uma linha da tabela com largura AL
 	push AX
 	push CX
@@ -299,7 +265,6 @@ PRINT_BORDAS proc ;escreve as bordas laterais para uma linha da tabela com largu
 	pop AX
 	ret
 endp
-
 
 PRINT_LINHA_SUPERIOR proc	;escreve linha central da tabela na iniciando na posição DH: linha, DL: coluna, AX: largura da linha - 2(extremos) 
 	push AX
@@ -435,26 +400,22 @@ PRINT_TELA_INICIO proc
 	mov CX, 8 	;tamanho da string
 	mov BP, offset textAutores  	   	
 	call ESC_STRING 	
-
-	; MOSTRA NOME ANDERSON IMPERATORI        
+       
 	inc DH		;linha inicial 	
 	mov CX, 19 	;tamanho da string
 	mov BP, offset nomeAnderson  	   	
 	call ESC_STRING 
 	
-	; MOSTRA NOME EDUARDO MENZEN
 	inc DH		;linha inicial
 	mov CX, 14 	;tamanho da string
 	mov BP, offset nomeEduardo  	   	
 	call ESC_STRING
 	
-	; MOSTRA AS OPCOES  
-	;jogar
 	add DH, 3	;linha inicial 	
 	mov CX, 5 	;tamanho da string
 	mov BP, offset opJogar  	   	
 	call ESC_STRING  	
-	; sair
+
 	inc DH		;linha inicial   	
 	mov CX, 4 	;tamanho da string
 	mov BP, offset opSair  	   	
@@ -473,38 +434,32 @@ ESC_NUMEROS proc ;escreve os numeros tendo como posição incial a linha DH e a 
 	push CX
 	push DX
 	push SI
+	push BP
 		
 	add DH, 3	;ajusta linha
 	add DL, 3 	;ajusta coluna
 	call MOV_CURSOR
-	mov CX, 10
-	mov SI,OFFSET stringNumeros	
-	ESC_NUM_HOR:	;escreve números horizontais
-		push CX
-		mov CX, 1
-		lodsb
-        call ESC_CHAR_10
-		inc DL
-		inc DL
-		call MOV_CURSOR
-		pop CX
-	loop ESC_NUM_HOR
+	
+	mov CX, 19 	;tamanho da string
+	mov BP, offset stringNumeros
+	call ESC_STRING
 	
 	inc DH		;linha
-	sub DL, 22 	;coluna
+	sub DL, 2  	;coluna
 	call MOV_CURSOR
 	mov CX, 10
-	mov SI,OFFSET stringNumeros	
+	mov SI, BP	
 	ESC_NUM_VER:	;escreve números verticais
 		push CX
 		mov CX, 1
-        lodsb
+        lodsw
         call ESC_CHAR_10
 		inc DH
 		call MOV_CURSOR
 		pop CX
 	loop ESC_NUM_VER
 	
+	pop BP
 	pop SI
 	pop DX
 	pop CX
@@ -589,15 +544,7 @@ PRINT_TELA_JOGO proc
 	mov BL, 7 	;cor: cinza claro 
 	
 	;desenhar tabela de tiros
-	;TODO: ALTERA DEPOIS PARA A SITUAÇÃO ABAIXO*****
-	PUSH DX
-	MOV DH, 5
-	MOV DL, 3
-	mov SI, offset matrizNaviosPC
-	call ESCREVE_MATRIZ_NAVIOS
-	POP DX
-	;TODO************
-	;call PRINT_QUADRADOS_VERDES
+	call PRINT_QUADRADOS_VERDES
 	mov CX, 14  ;altura da retângulo
 	mov AX, 21  ;largura da retângulo
 	call PRINT_RETANGULO
@@ -733,33 +680,28 @@ PRINT_TELA_FINAL proc
 	mov CX, 14  ;altura da retângulo
 	mov AX, 21  ;largura da retângulo
 	call PRINT_RETANGULO 
-		
-	;texto Fim de Jogo 	
+		 	
 	inc DH   ;linha	
 	add DL, 3   ;coluna
 	mov CX, 17 	;tamanho da string
 	mov BP, offset textFimdeJogo
 	call ESC_STRING 
 	
-	;texto de quem ganhou passado pelo SI
 	mov BL, 4   ;cor: vermelha
-	add DH, 3	 ;linha
-	mov BP, SI	
+	add DH, 3	;linha
+	mov BP, SI	;texto de quem ganhou passado pelo SI
 	call ESC_STRING 
 	
-	;texto Numero de Jogadas
 	mov BL, 7 	;cor: cinza claro
 	add DH, 3	;linha	
 	mov BP, offset textNumJogadas
 	call ESC_STRING 
 	
-	;texto Reinciar
 	mov BL, 1   ;cor: azul
 	add DH, 4	;linha
 	mov BP, offset textReiniciar
 	call ESC_STRING 	
 	
-	;texto Novo Jogo
 	mov BL, 2   ;cor: verde
 	add DH, 2	;linha	
 	mov BP, offset textNovoJogo
@@ -850,55 +792,27 @@ endp
 
 VALIDA_LIMITE_MATRIZ proc	;recebe posição em AH, direção (V ou H) em AL e tamanho da embarcação em CL
 	push AX					;devolvendo se é valida (BL = 1) ou não (BL = 0)
+	push CX
 	
-	cmp AL, 'H'			;verifica se é horizontal
-	jnz VERTICAL		;se não é horizontal vai para as validações verticais
-		mov AL, AH		;salva posição em AL
-		xor AH, AH		;zera AH
-		mov BL, 10		;valor para divisão
-		div BL			;AL:AH <- AX/BL (quociente:resto) -> AH recebe o valor da coluna
-		jmp VALIDACOES
-	VERTICAL:
-		mov AL, AH		;salva posição em AL
-		xor AH, AH		;zera AH
-		mov BL, 10		;valor para divisão
-		div BL			;AL:AH <- AX/BL (quociente:resto) -> AL recebe o valor da linha
+	mov CH , AL 		;salva a direção
+	mov AL, AH			;salva posição em AL
+	xor AH, AH			;zera AH
+	mov BL, 10			;valor para divisão
+	div BL				;AL:AH <- AX/BL (quociente:resto) -> AH recebe o valor da coluna	
+	xor BL, BL			;seta posição não válida (BL = 0)
+	cmp CH, 'H'			;verifica se é horizontal
+	jz VALIDACOES		;se não é horizontal vai para as validações verticais
 		mov AH, AL		;move o valor da linha para AH
 	
 	VALIDACOES:
-		mov BL, 1			;seta posição como válida
-		cmp AH, 9		;nenhuma embarcação pode ser inserida na posição 9
-		jb CONTINUA1	;AH < 9
-		xor BL, BL		;posição não é válida (BL = 0)
-		jmp FIM_VALIDA
-		CONTINUA1:
-		cmp AH, 6		;qualquer embarcação pode ser inserida nas posições 0,1,2,3,4 e 5
-		jb FIM_VALIDA	;AH < 6
-		cmp CL, 2		;embarcação com tamanho 2
-		jnz CONTINUA2	;se CL != 2
-		cmp AH, 8
-		jbe FIM_VALIDA	;se AH <= 8, a posição é válida
-		xor BL, BL		;posição não é válida (BL = 0)
-		jmp FIM_VALIDA		
-		CONTINUA2:
-		cmp CL, 3		;embarcação com tamanho 3
-		jnz CONTINUA3	;se CL != 3
-		cmp AH, 7
-		jbe FIM_VALIDA	;se AH <= 7, a posição é válida
-		xor BL, BL		;posição não é válida (BL = 0)
-		jmp FIM_VALIDA		
-		CONTINUA3:
-		cmp CL, 4		;embarcação com tamanho 4
-		jnz CONTINUA4	;se CL != 4
-		cmp AH, 6
-		jbe FIM_VALIDA	;se AH <= 6, a posição é válida
-		xor BL, BL		;posição não é válida (BL = 0)
-		jmp FIM_VALIDA		
-		CONTINUA4:			
-		xor BL, BL		;embarcação com tamanho 5 está numa posição não válida (BL = 0)
-				
+		add AH, CL
+		cmp AH, 10
+		ja FIM_VALIDA
+		inc BL
+		
 	FIM_VALIDA:
 	
+	pop CX
 	pop AX
 	ret
 endp
@@ -946,9 +860,9 @@ ZERA_MATRIZ proc ;copia valor de AX para a "matriz" em DI
 	push DI
 	xor AX, AX	;zera AX
 	mov CX, 50
-	ZERA:
-		stosw	;[ES:DI] <- AX add DI,2
-		loop ZERA
+
+	rep	stosw	;[ES:DI] <- AX add DI,2
+
 	pop DI
 	pop CX
 	pop AX
@@ -960,9 +874,9 @@ COPIA_MATRIZ proc ;copia a "matriz" em SI para outra "matriz" em DI
 	push SI
 	push DI
 	mov CX, 50
-	COPIA:
-		movsw	;[ES:DI] <- [DS:SI] add SI,2 e add DI,2
-		loop COPIA
+	
+	rep	movsw	;[ES:DI] <- [DS:SI] add SI,2 e add DI,2
+
 	pop DI
 	pop SI
 	pop CX
@@ -1337,6 +1251,7 @@ TIRO_JOGADOR proc	;realiza a leitura do tiro do jogador verificando o mesmo
 		mov CX, 1		;para escrever apenas uma vez o caractere
 		
 		mov AL, [SI+BX]	;move o conteúdo da matriz para AL
+		mov SI, offset vet_embarcacoes_PC
 		or AL, AL		;equivalente a compara com zero
 		jz	ACERTOU_VAZIO
 		cmp AL, 'A'
@@ -1354,31 +1269,25 @@ TIRO_JOGADOR proc	;realiza a leitura do tiro do jogador verificando o mesmo
 	ACERTOU_VAZIO:	
 		jmp ESCREVE_X
 	ACERTOU_PORTA_AVIOES:
-		mov SI, offset vet_embarcacoes_PC
+		
 		dec byte ptr[SI]	;decrementa o tamanho da embarcação do computador para saber quando afundou
 		jz  AFUNDOU_EMBARCACAO
 		jmp ESCREVE_BOLINHA
 	ACERTOU_NAVIO_GUERRA:
-		mov SI, offset vet_embarcacoes_PC
 		dec byte ptr[SI+1]
 		jz  AFUNDOU_EMBARCACAO
 		jmp ESCREVE_BOLINHA
 	ACERTOU_SUBMARINO:
-		mov SI, offset vet_embarcacoes_PC
 		dec byte ptr[SI+2]
 		jz  AFUNDOU_EMBARCACAO
 		jmp ESCREVE_BOLINHA
 	ACERTOU_DESTROYER:
-		mov SI, offset vet_embarcacoes_PC
 		dec byte ptr[SI+3]
 		jz  AFUNDOU_EMBARCACAO
 		jmp ESCREVE_BOLINHA
 	ACERTOU_BARCO_PATRULHA:
-		mov SI, offset vet_embarcacoes_PC
 		dec byte ptr[SI+4]
 		jz  AFUNDOU_EMBARCACAO
-		
-		
 		
 		jmp ESCREVE_BOLINHA
 	MESMA_JOGADA:
@@ -1386,7 +1295,7 @@ TIRO_JOGADOR proc	;realiza a leitura do tiro do jogador verificando o mesmo
 		mov BP, offset textPosicaoJaInf
 		mov BL, 4	;cor: vermelha
 		call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
-		;call DELAY3
+		call DELAY3
 		jmp REINICIAR_JOGADA
 	
 	ESCREVE_X:
@@ -1421,19 +1330,19 @@ TIRO_JOGADOR proc	;realiza a leitura do tiro do jogador verificando o mesmo
 	call ATUALIZA_RESULTADOS
 	mov BL, 4		;cor: vermelha
 	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
-	;call DELAY3
+	call DELAY3
 	cmp byte ptr[DI+5], 5	;quando chegar a 5 é porque afundou todas as embarcações do computador
 	jnz FIM_JOGADA_JOGADOR
 	mov BP, offset textVoceVenceu
 	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
-	;call DELAY5
+	call DELAY5
 	jmp  FIM_JOGO
 	
 	
 	FIM_JOGADA_JOGADOR:
 	mov BP, offset textAguardando
 	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
-	;call DELAY3
+	call DELAY3
 	xor AX, AX	;zera AX, para indicar que o jogo não chegou ao fim
 	jmp FINAL
 	
@@ -1605,6 +1514,7 @@ TIRO_COMPUTADOR proc ;gera tiro computador e verifica o mesmo
 		mov CX, 1		;para escrever apenas uma vez o caractere
 		
 		mov AL, [SI+BX]	;move o conteúdo da matriz para AL
+		mov SI, offset vet_embarcacoes_jogador
 		or AL, AL		;equivalente a compara com zero
 		jz	ACERTOU_VAZIO2
 		cmp AL, 'A'
@@ -1623,31 +1533,26 @@ TIRO_COMPUTADOR proc ;gera tiro computador e verifica o mesmo
 		jmp ESCREVE_QUADRADO
 	ACERTOU_PORTA_AVIOES2:
 		mov AL, 'A'
-		mov SI, offset vet_embarcacoes_jogador
 		dec byte ptr[SI]	;decrementa o tamanho da embarcação do jogador para saber quando afundou
 		jz  AFUNDOU_EMBARCACAO2
 		jmp ESCREVE_LETRA
 	ACERTOU_NAVIO_GUERRA2:
 		mov AL, 'B'
-		mov SI, offset vet_embarcacoes_jogador
 		dec byte ptr[SI+1]	;decrementa o tamanho da embarcação do jogador para saber quando afundou
 		jz  AFUNDOU_EMBARCACAO2
 		jmp ESCREVE_LETRA
 	ACERTOU_SUBMARINO2:
 		mov AL, 'S'
-		mov SI, offset vet_embarcacoes_jogador
 		dec byte ptr[SI+2]	;decrementa o tamanho da embarcação do jogador para saber quando afundou
 		jz  AFUNDOU_EMBARCACAO2
 		jmp ESCREVE_LETRA
 	ACERTOU_DESTROYER2:
 		mov AL, 'D'
-		mov SI, offset vet_embarcacoes_jogador
 		dec byte ptr[SI+3]	;decrementa o tamanho da embarcação do jogador para saber quando afundou
 		jz  AFUNDOU_EMBARCACAO2
 		jmp ESCREVE_LETRA
 	ACERTOU_BARCO_PATRULHA2:
 		mov AL, 'P'
-		mov SI, offset vet_embarcacoes_jogador
 		dec byte ptr[SI+4]	;decrementa o tamanho da embarcação do jogador para saber quando afundou
 		jz  AFUNDOU_EMBARCACAO2
 		jmp ESCREVE_LETRA
@@ -1686,9 +1591,8 @@ TIRO_COMPUTADOR proc ;gera tiro computador e verifica o mesmo
 	jnz FIM_JOGADA_COMPUTADOR
 	mov BP, offset textVocePerdeu
 	call ESCREVE_MENSAGENS	;Escreve as mensagens durante o jogo, recebendo a cor em BL e o endereço da string em BP
-	;call DELAY5
+	call DELAY5
 	jmp  FIM_JOGO2
-	
 	
 	FIM_JOGADA_COMPUTADOR:
 	xor AX, AX	;zera AX, para indicar que o jogo não chegou ao fim
@@ -1732,7 +1636,6 @@ REINICIAR_CONTADORES proc	;zera contadores no caso de reinicio ou novo jogo
 	;reconfigura o tamanho das embarcações do computador para saber quando afundam
 	rep movsb	;ES:DI <- DS:SI e inc SI e DI
 
-	
 	pop DI
 	pop CX
 	pop AX
@@ -1780,64 +1683,66 @@ INICIO:	mov AX, @data ; carrega valor inicial da stack
 	
 	call DEFINE_MODO_VIDEO
 	NOVO_JOGO:
-	mov AL, 1	;define o número da página
-	call MUDA_PAGINA
-	call PRINT_TELA_INICIO
+	mov AL, 1				;define o número da página
+	call MUDA_PAGINA		;muda para a página informada
+	call PRINT_TELA_INICIO	;desenha a tela inicial
     
-	LER_OPCAO_INICIO:
+	LER_OPCAO_INICIO:		;lê as opções da tela inicial
 		call LER_CHAR
-		cmp AL, 'S'
+		cmp AL, 'S'			;'S' para sair do programa
 		jz SAIR      
-		cmp AL, 'J'
+		cmp AL, 'J'			;'J' para iniciar uma partida
     jnz LER_OPCAO_INICIO
 	
-	mov AL, 2	;define o número da página
+	mov AL, 2				;define o número da página
 	call MUDA_PAGINA
-	call PRINT_TELA_CONFIG
-	call INSERE_BARCOS_JOGADOR
-	jmp NOVA_JOGADA		;neste caso esta iniciando uma nova partida
+	call PRINT_TELA_CONFIG	;desenha a tela de configuração
+	;controla o fluxo de digitação, validação e inserção das posições para as embarcações do jogador
+	call INSERE_BARCOS_JOGADOR 
+	jmp NOVA_JOGADA			;se chegou significa uma nova partida
 
-	REINICIAR:			;neste caso o jogador mantem a sua configuração inicial
+	REINICIAR:	;inicia uma nova partida mantendo configuração inicial das embarcações para o jogador
 	mov SI, offset matrizNaviosBackup
 	mov DI, offset matrizNavios
-	call COPIA_MATRIZ	;copia a "matriz" em SI para a matriz em DI
+	call COPIA_MATRIZ		;copia a "matriz" em SI para a matriz em DI
 
 	NOVA_JOGADA:
-	mov AL, 0	;define o número da página
+	mov AL, 0				;define o número da página
 	call MUDA_PAGINA
 	call DEFINE_MODO_VIDEO	;ao definir um novo modo de video, limpa as telas	
 	
-	mov AL, 3	;define o número da página
+	mov AL, 3				;define o número da página
 	call MUDA_PAGINA
-	call INSERE_BARCOS_COMPUTADOR	;gera posições das embarcações do computador
-	call REINICIAR_CONTADORES
+	;controla o fluxo de geração, validação e inserção das posições para as embarcações do computador
+	call INSERE_BARCOS_COMPUTADOR
+	call REINICIAR_CONTADORES ;reinicia os contadores
 	
-	;mov BH, 3	;seta página
-	;mov BL, 7	;cor: cinza claro
-	call PRINT_TELA_JOGO
+	call PRINT_TELA_JOGO	;desenha a tela principal do jogo
 	EVOLUCAO_JOGO:
-		xor AX, AX		;zera AX
+		xor AX, AX			;zera AX
+		;responsável por solicitar, validar e gravar as posições dos tiros do jogador
 		call TIRO_JOGADOR
 		or AX, AX		;testa se já terminou o jogo
-		jnz TELA_FIM		
+		jnz TELA_FIM
+		;responsável por gerar, validar e gravar as posições dos tiros do computador
 		call TIRO_COMPUTADOR
 		or AX, AX		;testa se já terminou o jogo
 		jnz TELA_FIM	
 	jmp EVOLUCAO_JOGO
 
 	TELA_FIM:
-	call MENSAGENS_TELA_FIM
+	call MENSAGENS_TELA_FIM	;responsável por mostrar as mensagens de finalização da partida
 	mov AL, 4				;define o número da página
 	call MUDA_PAGINA                
-	call PRINT_TELA_FINAL
-	LER_OPCAO_FIM:
+	call PRINT_TELA_FINAL   ;desenha a tela final da partida
+	LER_OPCAO_FIM:			;lê as opções na tela final
 		call LER_CHAR
-		cmp AL, 'R'
+		cmp AL, 'R'			;'R' para reiniciar um partida
 		jz REINICIAR      
-		cmp AL, 'N'
+		cmp AL, 'N'			;'N' para iniciar um novo jogo
 		jz NOVO_JOGO		;vai para  tela inicial
     jnz LER_OPCAO_FIM
 	
 	SAIR:
-	call SAIR_JOGO ; finaliza o jogo
+	call SAIR_JOGO 			;finaliza o programa
 end INICIO
